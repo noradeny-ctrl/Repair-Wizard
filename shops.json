@@ -1,0 +1,108 @@
+
+[
+  {
+    "shop_id": "shop_001",
+    "name": "Erbil German Tech Auto",
+    "is_verified": true,
+    "subscription_status": "active",
+    "monthly_fee": 100,
+    "location": {
+      "city": "Erbil",
+      "neighborhood": "100m Road",
+      "lat": 36.1901,
+      "lng": 44.0091
+    },
+    "contact": {
+      "whatsapp_number": "9647501234567",
+      "wa_link": "https://wa.me/9647501234567",
+      "custom_message": "Hello! The Wizard sent me. I need help with my car."
+    },
+    "specialties": ["BMW", "Mercedes", "Transmission", "Engine Diagnostics"],
+    "rating": 4.9,
+    "availability": "Mon-Sat: 08:30 - 19:00",
+    "reviews": [
+      { "user": "Ahmad K.", "comment": "Best engine specialist in Erbil. Highly professional.", "rating": 5, "date": "2024-03-10" },
+      { "user": "Saman R.", "comment": "Fixed my BMW transmission issues in one day.", "rating": 4, "date": "2024-02-28" }
+    ],
+    "images": [
+      "https://images.unsplash.com/photo-1486006920555-c77dcf18193c?auto=format&fit=crop&w=800&q=80"
+    ]
+  },
+  {
+    "shop_id": "shop_baghdad_002",
+    "name": "Al-Mansour iPhone Hub",
+    "is_verified": true,
+    "subscription_status": "active",
+    "monthly_fee": 100,
+    "location": {
+      "city": "Baghdad",
+      "neighborhood": "Al-Mansour",
+      "lat": 33.3128,
+      "lng": 44.3615
+    },
+    "contact": {
+      "whatsapp_number": "9647809876543",
+      "wa_link": "https://wa.me/9647809876543?text=Hi!%20The%20Wizard%20says%20my%20phone%20needs%20fixing.",
+      "custom_message": "Hi! The Wizard says my phone needs fixing."
+    },
+    "specialties": ["iPhone", "iPad", "Motherboard", "Screen Replacement"],
+    "rating": 4.8,
+    "availability": "Sat-Thu: 10:00 - 22:00",
+    "reviews": [
+      { "user": "Layla M.", "comment": "Fast screen repair, looks like new.", "rating": 5, "date": "2024-03-05" }
+    ]
+  },
+  {
+    "shop_id": "shop_basra_003",
+    "name": "Basra Smart HVAC & AC",
+    "is_verified": true,
+    "subscription_status": "active",
+    "monthly_fee": 100,
+    "location": {
+      "city": "Basra",
+      "neighborhood": "Al-Ashar",
+      "lat": 30.5081,
+      "lng": 47.7835
+    },
+    "contact": {
+      "whatsapp_number": "9647701122334",
+      "wa_link": "https://wa.me/9647701122334?text=My%20AC%20is%20broken.%20Can%20the%20Wizard%20help?",
+      "custom_message": "My AC is broken. Can the Wizard help?"
+    },
+    "specialties": ["Air Conditioning", "Home Appliances", "Electrical"],
+    "rating": 4.7,
+    "availability": "Daily: 08:00 - 20:00",
+    "reviews": [
+      { "user": "Mohammed J.", "comment": "Honest work on my AC unit. Very cool now.", "rating": 5, "date": "2024-03-01" }
+    ]
+  },
+  {
+    "shop_id": "shop_duhok_yousif_001",
+    "name": "Yousif Nizar",
+    "is_verified": true,
+    "subscription_status": "active",
+    "monthly_fee": 100,
+    "location": {
+      "city": "Duhok",
+      "neighborhood": "sina3a baroshke",
+      "lat": 36.852391473548245,
+      "lng": 43.04413060589592
+    },
+    "contact": {
+      "whatsapp_number": "9647518418285",
+      "wa_link": "https://wa.me/9647518418285?text=Silav!%20Min%20dikan%20a%20we%20li%20ser%20Repair%20Wizard%20d%C3%AEt.",
+      "custom_message": "Silav! Min dikan a we li ser Repair Wizard dît."
+    },
+    "specialties": [
+      "Auto Electrician (Karebayî)", 
+      "A/C Repair (Tebrîد)", 
+      "ECU Programming (Bermeje)"
+    ],
+    "rating": 5.0,
+    "availability": "Mon-Sat: 08:00 - 18:00",
+    "reviews": [
+      { "user": "Kaveh D.", "comment": "Master of ECUs. Best programmer in Duhok.", "rating": 5, "date": "2024-03-12" },
+      { "user": "Nizar H.", "comment": "Expert A/C work. Reliable and fast.", "rating": 5, "date": "2024-03-10" }
+    ]
+  }
+]

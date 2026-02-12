@@ -1,0 +1,8 @@
+{
+  "name": "Repair Wizard",
+  "description": "An AI-powered diagnostic tool that helps you identify and fix household items using visual analysis and expert troubleshooting steps.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
