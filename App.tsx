@@ -145,12 +145,11 @@ const App: React.FC = () => {
           )}
 
           {appState === AppState.PARTNER_SIGNUP ? (
-            // Added required currentRole and onSuccess props to fix line 149 error
+            // Added required onSuccess prop
             <PartnerForm 
               lang={lang} 
               onCancel={handleReset} 
               onSuccess={handlePartnerSignupSuccess} 
-              currentRole={role}
             />
           ) : (appState === AppState.IDLE || appState === AppState.DIAGNOSING) ? (
             <div className="space-y-16 animate-in fade-in slide-in-from-bottom-8 duration-1000">

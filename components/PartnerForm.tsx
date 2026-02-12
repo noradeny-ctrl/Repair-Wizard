@@ -1,43 +1,22 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { Language, UserRole } from '../types';
 import { useTranslation } from '../services/i18n';
 import { auth, db } from '../services/firebase';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
-  sendEmailVerification,
-  deleteUser,
-  signOut
+  sendEmailVerification 
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 
 interface PartnerFormProps {
   lang: Language;
   onCancel: () => void;
   onSuccess: (newRole: UserRole) => void;
-  currentRole: UserRole;
 }
 
-type PartnerFormStep = 
-  | 'INTRO' 
-  | 'SIGNIN' 
-  | 'STEP_IDENTITY' 
-  | 'STEP_BUSINESS' 
-  | 'STEP_EXPERTISE' 
-  | 'STEP_CONNECT' 
-  | 'STEP_REVIEW' 
-  | 'PENDING' 
-  | 'MANAGEMENT' 
-  | 'CONFIRM_DELETE';
-
-const SPECIALTIES = [
-  { id: 'mechanical', label: 'Mechanical', icon: 'fa-wrench', color: 'text-blue-400' },
-  { id: 'electrical', label: 'Electrical', icon: 'fa-bolt', color: 'text-amber-400' },
-  { id: 'ecu', label: 'ECU Programming', icon: 'fa-microchip', color: 'text-purple-400' },
-  { id: 'ac', label: 'A/C & Cooling', icon: 'fa-snowflake', color: 'text-cyan-400' },
-  { id: 'transmission', label: 'Transmission', icon: 'fa-gears', color: 'text-rose-400' },
-  { id: 'body', label: 'Body & Paint', icon: 'fa-paint-roller', color: 'text-emerald-400' },
-];
+type PartnerFormStep = 'INTRO' | 'APPLY' | 'SIGNIN' | 'PENDING';
 
 const BenefitRow: React.FC<{ icon: string; text: string; color: string }> = ({ icon, text, color }) => (
   <div className="flex items-center gap-6 group">
@@ -48,62 +27,46 @@ const BenefitRow: React.FC<{ icon: string; text: string; color: string }> = ({ i
   </div>
 );
 
-const PartnerForm: React.FC<PartnerFormProps> = ({ lang, onCancel, onSuccess, currentRole }) => {
+const PartnerForm: React.FC<PartnerFormProps> = ({ lang, onCancel, onSuccess }) => {
   const t = useTranslation(lang);
-  const [step, setStep] = useState<PartnerFormStep>(currentRole === UserRole.PARTNER ? 'MANAGEMENT' : 'INTRO');
+  const [step, setStep] = useState<PartnerFormStep>('INTRO');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Profile Details
+  // Form State
   const [ownerName, setOwnerName] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [location, setLocation] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Business Details
-  const [businessName, setBusinessName] = useState('');
-  const [location, setLocation] = useState('');
-  const [neighborhood, setNeighborhood] = useState('');
-
-  // Service Offerings
-  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
-  const [serviceDescription, setServiceDescription] = useState('');
-  const [brands, setBrands] = useState('');
-
-  // Connectivity
-  const [phone, setPhone] = useState('');
-
-  useEffect(() => {
-    if (currentRole === UserRole.PARTNER) {
-      setStep('MANAGEMENT');
-    }
-  }, [currentRole]);
-
-  const toggleSpecialty = (id: string) => {
-    setSelectedSpecialties(prev => 
-      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
-    );
-  };
-
-  const handleApply = async () => {
+  const handleApply = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSubmitting(true);
     setErrorMsg(null);
 
+    if (password.length < 6) {
+      setErrorMsg(t('auth_err_weak_password'));
+      setIsSubmitting(false);
+      return;
+    }
+    
     try {
+      // 1. Create User in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      // 2. Send verification email
       await sendEmailVerification(user);
 
+      // 3. Save partner metadata to Firestore
       await setDoc(doc(db, "partners", user.uid), {
         ownerName,
         businessName,
         location,
-        neighborhood,
         phone,
         email,
-        specialties: selectedSpecialties,
-        serviceDescription,
-        brandsFocus: brands,
         status: "pending",
         role: UserRole.PARTNER,
         appliedAt: serverTimestamp(),
@@ -112,12 +75,16 @@ const PartnerForm: React.FC<PartnerFormProps> = ({ lang, onCancel, onSuccess, cu
       setStep('PENDING');
     } catch (err: any) {
       console.error("Signup Error:", err);
+      
+      // Handle Firebase specific Auth Errors
       if (err.code === 'auth/email-already-in-use') {
         setErrorMsg(t('auth_err_email_in_use'));
-        setStep('SIGNIN');
+      } else if (err.code === 'auth/invalid-email') {
+        setErrorMsg(t('auth_err_invalid_email'));
+      } else if (err.code === 'auth/weak-password') {
+        setErrorMsg(t('auth_err_weak_password'));
       } else {
         setErrorMsg(err.message || t('auth_err_generic'));
-        setStep('STEP_IDENTITY');
       }
     } finally {
       setIsSubmitting(false);
@@ -130,9 +97,10 @@ const PartnerForm: React.FC<PartnerFormProps> = ({ lang, onCancel, onSuccess, cu
     setErrorMsg(null);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      // Check partner status in Firestore
       const partnerDoc = await getDoc(doc(db, "partners", user.uid));
       
       if (!partnerDoc.exists()) {
@@ -142,6 +110,7 @@ const PartnerForm: React.FC<PartnerFormProps> = ({ lang, onCancel, onSuccess, cu
 
       const partnerData = partnerDoc.data();
       if (partnerData.status === 'active' || partnerData.status === 'approved') {
+        // Success! Upgrade role and return
         onSuccess(UserRole.PARTNER);
       } else if (partnerData.status === 'pending') {
         setBusinessName(partnerData.businessName || 'Your Business');
@@ -150,192 +119,56 @@ const PartnerForm: React.FC<PartnerFormProps> = ({ lang, onCancel, onSuccess, cu
         setErrorMsg(t('application_denied'));
       }
     } catch (err: any) {
-      setErrorMsg(t('auth_err_wrong_pass'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleTerminateAccount = async () => {
-    setIsSubmitting(true);
-    setErrorMsg(null);
-
-    try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("No active node found.");
-
-      await deleteDoc(doc(db, "partners", user.uid));
-      await deleteUser(user);
-      onSuccess(UserRole.CONSUMER);
-      onCancel();
-    } catch (err: any) {
-      console.error("Termination error:", err);
-      if (err.code === 'auth/requires-recent-login') {
-        setErrorMsg("Critical: Security session expired. Please sign in again before termination.");
-        await signOut(auth);
-        setStep('SIGNIN');
+      console.error("SignIn Error:", err);
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        setErrorMsg(t('auth_err_wrong_pass'));
       } else {
-        setErrorMsg(err.message || "Termination sequence interrupted.");
+        setErrorMsg(t('auth_err_generic'));
       }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const ProgressHeader: React.FC<{ current: number, total?: number }> = ({ current, total = 5 }) => (
-    <div className="flex flex-col gap-4 mb-10">
-      <div className="flex justify-between items-center px-2">
-        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Node Syncing</span>
-        <span className="text-[10px] font-mono text-slate-500">{current} / {total}</span>
-      </div>
-      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-        <div 
-          className="h-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-700 ease-out"
-          style={{ width: `${(current / total) * 100}%` }}
-        />
-      </div>
-    </div>
-  );
-
-  if (step === 'MANAGEMENT') {
-    return (
-      <div className="bg-slate-900/60 rounded-[4rem] border border-slate-800 p-10 md:p-24 text-center relative overflow-hidden animate-in slide-in-from-bottom-8 duration-700 shadow-2xl">
-        <div className="relative z-10 space-y-12 max-w-xl mx-auto">
-          <div className="space-y-4 text-center">
-            <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter leading-none">
-              Partner Node
-            </h2>
-            <p className="text-amber-500 font-bold text-xs uppercase tracking-[0.4em]">Authorized Authority</p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4">
-             <button 
-              onClick={onCancel}
-              className="w-full py-7 bg-slate-950 border border-slate-800 text-white rounded-[2.5rem] flex items-center justify-center gap-4 hover:border-slate-700 transition-all active:scale-95"
-            >
-              <i className="fa-solid fa-house text-xl text-blue-500"></i>
-              <span className="text-sm font-black uppercase tracking-widest">Return to Diagnostic Terminal</span>
-            </button>
-
-            <button 
-              onClick={() => setStep('CONFIRM_DELETE')}
-              className="w-full py-5 text-rose-500/50 hover:text-rose-500 font-black uppercase tracking-widest text-[10px] transition-all"
-            >
-              Relinquish Authority (Terminate Account)
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === 'CONFIRM_DELETE') {
-    return (
-      <div className="bg-slate-950 rounded-[4rem] border border-rose-500/30 p-10 md:p-24 text-center relative overflow-hidden animate-in zoom-in-95 duration-500 shadow-2xl">
-        <div className="relative z-10 space-y-12 max-w-lg mx-auto">
-          <div className="w-24 h-24 bg-rose-500/10 border border-rose-500/30 rounded-full flex items-center justify-center mx-auto text-rose-500 animate-pulse">
-            <i className="fa-solid fa-triangle-exclamation text-4xl"></i>
-          </div>
-          
-          <div className="space-y-6">
-            <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter leading-none">
-              Void Protocol
-            </h2>
-            <p className="text-slate-400 font-medium text-lg leading-relaxed">
-              This action will permanently delete your partner profile, leads history, and verified status. <span className="text-rose-500 font-black">This cannot be reversed.</span>
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <button 
-              onClick={handleTerminateAccount}
-              disabled={isSubmitting}
-              className="w-full py-8 bg-rose-600 text-white font-black uppercase tracking-[0.3em] text-sm rounded-[3rem] shadow-2xl shadow-rose-900/40 active:scale-95 transition-all flex items-center justify-center gap-3"
-            >
-              {isSubmitting ? <i className="fa-solid fa-circle-notch animate-spin"></i> : "Execute Void Protocol"}
-            </button>
-            <button 
-              onClick={() => setStep('MANAGEMENT')}
-              className="w-full py-5 text-slate-500 font-black uppercase tracking-widest text-[10px] hover:text-slate-300 transition-all"
-            >
-              Cancel Termination
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleCheckStatus = () => {
+    alert("Application Status: [PENDING REVIEW]. Our team is verifying your profile. You will receive an email once approved.");
+  };
 
   if (step === 'PENDING') {
     return (
       <div className="bg-slate-900/60 rounded-[4rem] border border-amber-500/30 p-10 md:p-24 text-center relative overflow-hidden animate-in zoom-in-95 duration-700 shadow-2xl">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(245,158,11,0.05),transparent_70%)]"></div>
+        
         <div className="relative z-10 space-y-12 max-w-lg mx-auto">
           <div className="w-28 h-28 bg-amber-500/10 border border-amber-500/40 rounded-full flex items-center justify-center mx-auto animate-pulse shadow-[0_0_30px_rgba(245,158,11,0.2)]">
             <i className="fa-solid fa-hourglass-half text-amber-500 text-5xl"></i>
           </div>
+          
           <div className="space-y-6">
             <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter leading-none">
-              Node Processing
+              Application Received
             </h2>
             <p className="text-slate-400 font-medium text-lg leading-relaxed px-4">
-              Your profile for <span className="text-amber-500 font-bold">{businessName}</span> is being reviewed. Authorized partners will be notified via WhatsApp.
+              Your profile for <span className="text-amber-500 font-bold">{businessName}</span> is being processed. Once approved, you can sign in to access your dashboard.
+            </p>
+            <p className="text-amber-500/60 font-black text-[10px] uppercase tracking-[0.2em]">
+              {t('support_email_note')}
             </p>
           </div>
-          <button 
-            onClick={onCancel}
-            className="w-full py-5 text-slate-500 font-black uppercase tracking-widest text-[11px] hover:text-slate-300 transition-all"
-          >
-            Return Home
-          </button>
-        </div>
-      </div>
-    );
-  }
 
-  if (step === 'STEP_IDENTITY') {
-    return (
-      <div className="bg-slate-900/60 rounded-[4rem] border border-slate-800 p-10 md:p-20 text-left relative overflow-hidden animate-in slide-in-from-bottom-8 duration-700 shadow-2xl">
-        <div className="relative z-10 max-w-xl mx-auto">
-          <ProgressHeader current={1} />
-          <div className="space-y-10">
-            <div className="space-y-2">
-              <h2 className="text-4xl font-black text-white tracking-tight">Profile Completion</h2>
-              <p className="text-slate-500 text-sm uppercase tracking-widest font-bold">Step 1: Partner Authentication</p>
-            </div>
-            
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Owner Name</label>
-                <input 
-                  type="text" value={ownerName} onChange={(e) => setOwnerName(e.target.value)}
-                  placeholder="Full Legal Name"
-                  className="w-full p-5 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Email Address</label>
-                <input 
-                  type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@example.com"
-                  className="w-full p-5 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Secure Password</label>
-                <input 
-                  type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full p-5 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
-                />
-              </div>
-            </div>
-
+          <div className="flex flex-col gap-5 pt-4">
             <button 
-              onClick={() => ownerName && email && password.length >= 6 && setStep('STEP_BUSINESS')}
-              disabled={!ownerName || !email || password.length < 6}
-              className="w-full py-6 bg-amber-500 text-slate-950 font-black uppercase tracking-widest text-sm rounded-[2rem] shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all disabled:opacity-30"
+              onClick={handleCheckStatus}
+              className="w-full py-7 bg-amber-500 text-slate-950 font-black uppercase tracking-[0.3em] text-sm rounded-[2.5rem] hover:bg-amber-400 transition-all shadow-2xl shadow-amber-500/30 active:scale-95 group overflow-hidden relative"
             >
-              Continue to Business Details
+              <span className="relative z-10">{t('check_status')}</span>
+              <div className="absolute top-0 -left-full w-2/3 h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[35deg] group-hover:animate-[shine_2s_infinite]"></div>
+            </button>
+            <button 
+              onClick={onCancel}
+              className="w-full py-5 text-slate-500 font-black uppercase tracking-widest text-[11px] hover:text-slate-300 transition-all"
+            >
+              Return Home
             </button>
           </div>
         </div>
@@ -343,228 +176,110 @@ const PartnerForm: React.FC<PartnerFormProps> = ({ lang, onCancel, onSuccess, cu
     );
   }
 
-  if (step === 'STEP_BUSINESS') {
+  if (step === 'APPLY') {
     return (
       <div className="bg-slate-900/60 rounded-[4rem] border border-slate-800 p-10 md:p-20 text-left relative overflow-hidden animate-in slide-in-from-bottom-8 duration-700 shadow-2xl">
-        <div className="relative z-10 max-w-xl mx-auto">
-          <ProgressHeader current={2} />
-          <div className="space-y-10">
-            <div className="space-y-2">
-              <h2 className="text-4xl font-black text-white tracking-tight">Business Details</h2>
-              <p className="text-slate-500 text-sm uppercase tracking-widest font-bold">Step 2: Shop Identity & Location</p>
+        <div className="relative z-10 max-w-xl mx-auto space-y-12">
+          <div className="space-y-4 text-center">
+            <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter leading-none">
+              Apply for Access
+            </h2>
+            <p className="text-amber-500/80 font-bold text-sm uppercase tracking-[0.2em] leading-relaxed">
+              Create your official Partner ID
+            </p>
+          </div>
+
+          {errorMsg && (
+            <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl text-rose-500 text-xs font-bold text-center animate-shake flex flex-col items-center gap-3">
+              <span>{errorMsg}</span>
+              {errorMsg === t('auth_err_email_in_use') && (
+                <button 
+                  onClick={() => setStep('SIGNIN')}
+                  className="px-4 py-2 bg-rose-500 text-white rounded-xl text-[10px] uppercase tracking-widest font-black"
+                >
+                  {t('signin_btn')}
+                </button>
+              )}
             </div>
-            
-            <div className="space-y-6">
+          )}
+
+          <form onSubmit={handleApply} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Shop Name</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Owner Name</label>
                 <input 
-                  type="text" value={businessName} onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="Master Tech Hub"
-                  className="w-full p-5 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
+                  type="text" required value={ownerName} onChange={(e) => setOwnerName(e.target.value)}
+                  placeholder="Full Name"
+                  className="w-full p-4 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
                 />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">City</label>
-                  <input 
-                    type="text" value={location} onChange={(e) => setLocation(e.target.value)}
-                    placeholder="e.g. Duhok"
-                    className="w-full p-5 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Neighborhood</label>
-                  <input 
-                    type="text" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)}
-                    placeholder="e.g. Sina3a"
-                    className="w-full p-5 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <button onClick={() => setStep('STEP_IDENTITY')} className="flex-1 py-6 bg-slate-950 border border-slate-800 text-slate-500 font-black uppercase tracking-widest text-[10px] rounded-[2rem]">Back</button>
-              <button 
-                onClick={() => businessName && location && setStep('STEP_EXPERTISE')}
-                disabled={!businessName || !location}
-                className="flex-[2] py-6 bg-amber-500 text-slate-950 font-black uppercase tracking-widest text-sm rounded-[2rem] shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all disabled:opacity-30"
-              >
-                Next: Service Offerings
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === 'STEP_EXPERTISE') {
-    return (
-      <div className="bg-slate-900/60 rounded-[4rem] border border-slate-800 p-10 md:p-20 text-left relative overflow-hidden animate-in slide-in-from-bottom-8 duration-700 shadow-2xl">
-        <div className="relative z-10 max-w-xl mx-auto">
-          <ProgressHeader current={3} />
-          <div className="space-y-10">
-            <div className="space-y-2">
-              <h2 className="text-4xl font-black text-white tracking-tight">Service Offerings</h2>
-              <p className="text-slate-500 text-sm uppercase tracking-widest font-bold">Step 3: Expertise & Specialization</p>
-            </div>
-            
-            <div className="space-y-8">
-              <div className="space-y-4">
-                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Technical Specialties</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {SPECIALTIES.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => toggleSpecialty(s.id)}
-                      className={`p-5 rounded-2xl border transition-all flex flex-col items-center gap-3 group ${
-                        selectedSpecialties.includes(s.id) 
-                          ? 'bg-amber-500/10 border-amber-500/50 text-amber-500' 
-                          : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-700'
-                      }`}
-                    >
-                      <i className={`fa-solid ${s.icon} text-2xl ${selectedSpecialties.includes(s.id) ? s.color : 'text-slate-700'} group-hover:scale-110 transition-transform`}></i>
-                      <span className="text-[10px] font-black uppercase tracking-widest">{s.label}</span>
-                    </button>
-                  ))}
-                </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Brand Focus (Optional)</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Business Name</label>
                 <input 
-                  type="text" value={brands} onChange={(e) => setBrands(e.target.value)}
-                  placeholder="e.g. BMW, Mercedes, Toyota, Apple, Samsung"
-                  className="w-full p-5 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Service Description</label>
-                <textarea 
-                  value={serviceDescription} onChange={(e) => setServiceDescription(e.target.value)}
-                  placeholder="Tell customers about your expert service quality..."
-                  className="w-full p-5 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium h-32 resize-none"
+                  type="text" required value={businessName} onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="e.g. Master Tech"
+                  className="w-full p-4 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
                 />
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <button onClick={() => setStep('STEP_BUSINESS')} className="flex-1 py-6 bg-slate-950 border border-slate-800 text-slate-500 font-black uppercase tracking-widest text-[10px] rounded-[2rem]">Back</button>
-              <button 
-                onClick={() => selectedSpecialties.length > 0 && setStep('STEP_CONNECT')}
-                disabled={selectedSpecialties.length === 0}
-                className="flex-[2] py-6 bg-amber-500 text-slate-950 font-black uppercase tracking-widest text-sm rounded-[2rem] shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all disabled:opacity-30"
-              >
-                Next: Connect Node
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === 'STEP_CONNECT') {
-    return (
-      <div className="bg-slate-900/60 rounded-[4rem] border border-slate-800 p-10 md:p-20 text-left relative overflow-hidden animate-in slide-in-from-bottom-8 duration-700 shadow-2xl">
-        <div className="relative z-10 max-w-xl mx-auto">
-          <ProgressHeader current={4} />
-          <div className="space-y-10">
-            <div className="space-y-2">
-              <h2 className="text-4xl font-black text-white tracking-tight">Connectivity</h2>
-              <p className="text-slate-500 text-sm uppercase tracking-widest font-bold">Step 4: WhatsApp Leads Integration</p>
-            </div>
-            
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">WhatsApp Leads Number</label>
-                <div className="relative">
-                  <i className="fa-brands fa-whatsapp absolute left-5 top-1/2 -translate-y-1/2 text-emerald-500 text-xl"></i>
-                  <input 
-                    type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+964..."
-                    className="w-full p-5 pl-14 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-500 mt-2 px-4">This number will receive direct leads from customers using the Repair Wizard app.</p>
+                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Location</label>
+                <input 
+                  type="text" required value={location} onChange={(e) => setLocation(e.target.value)}
+                  placeholder="City, Region"
+                  className="w-full p-4 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">WhatsApp</label>
+                <input 
+                  type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+964..."
+                  className="w-full p-4 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
+                />
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <button onClick={() => setStep('STEP_EXPERTISE')} className="flex-1 py-6 bg-slate-950 border border-slate-800 text-slate-500 font-black uppercase tracking-widest text-[10px] rounded-[2rem]">Back</button>
-              <button 
-                onClick={() => phone.length >= 8 && setStep('STEP_REVIEW')}
-                disabled={phone.length < 8}
-                className="flex-[2] py-6 bg-amber-500 text-slate-950 font-black uppercase tracking-widest text-sm rounded-[2rem] shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all disabled:opacity-30"
-              >
-                Final Review
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === 'STEP_REVIEW') {
-    return (
-      <div className="bg-slate-900/60 rounded-[4rem] border border-slate-800 p-10 md:p-20 text-left relative overflow-hidden animate-in slide-in-from-bottom-8 duration-700 shadow-2xl">
-        <div className="relative z-10 max-w-xl mx-auto">
-          <ProgressHeader current={5} />
-          <div className="space-y-10">
             <div className="space-y-2">
-              <h2 className="text-4xl font-black text-white tracking-tight">Ready for Launch?</h2>
-              <p className="text-slate-500 text-sm uppercase tracking-widest font-bold">Step 5: Synthesis Verification</p>
-            </div>
-            
-            <div className="bg-slate-950/50 border border-slate-800 rounded-[2.5rem] p-8 space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Partner</h4>
-                  <p className="text-sm font-bold text-white">{ownerName}</p>
-                </div>
-                <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Shop</h4>
-                  <p className="text-sm font-bold text-white">{businessName}</p>
-                </div>
-                <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Region</h4>
-                  <p className="text-sm font-bold text-white">{location}, {neighborhood}</p>
-                </div>
-                <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Node</h4>
-                  <p className="text-sm font-bold text-emerald-500">{phone}</p>
-                </div>
-              </div>
-              <div className="border-t border-slate-800 pt-6">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Expertise Spectrum</h4>
-                <div className="flex flex-wrap gap-2">
-                  {selectedSpecialties.map(sid => {
-                    const s = SPECIALTIES.find(x => x.id === sid);
-                    return s ? (
-                      <span key={sid} className="px-4 py-1.5 bg-slate-900 border border-slate-800 rounded-full text-[10px] font-black text-slate-300 uppercase">
-                        {s.label}
-                      </span>
-                    ) : null;
-                  })}
-                </div>
-              </div>
+              <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Login Email</label>
+              <input 
+                type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@example.com"
+                className="w-full p-4 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
+              />
             </div>
 
-            <div className="flex gap-4">
-              <button onClick={() => setStep('STEP_CONNECT')} className="flex-1 py-6 bg-slate-950 border border-slate-800 text-slate-500 font-black uppercase tracking-widest text-[10px] rounded-[2rem]">Back</button>
-              <button 
-                onClick={handleApply}
-                disabled={isSubmitting}
-                className="flex-[2] py-6 bg-gradient-to-r from-amber-600 to-amber-500 text-slate-950 font-black uppercase tracking-widest text-sm rounded-[2rem] shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all disabled:opacity-30 flex items-center justify-center gap-3"
-              >
-                {isSubmitting ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <><i className="fa-solid fa-check"></i> Initiate Portal</>}
-              </button>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Create Password</label>
+              <input 
+                type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="Minimum 6 characters"
+                className="w-full p-4 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
+              />
             </div>
-          </div>
+
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="w-full py-8 bg-amber-500 text-slate-950 font-black uppercase tracking-[0.4em] text-sm rounded-[3rem] shadow-2xl shadow-amber-500/30 active:scale-[0.97] transition-all disabled:opacity-50 relative overflow-hidden group mt-6"
+            >
+              <div className="relative z-10">
+                {isSubmitting ? <i className="fa-solid fa-circle-notch animate-spin"></i> : "Initialize Partner Account"}
+              </div>
+              <div className="absolute top-0 -left-full w-2/3 h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[35deg] group-hover:animate-[shine_2s_infinite]"></div>
+            </button>
+            <button 
+              type="button"
+              onClick={() => setStep('SIGNIN')}
+              className="w-full text-center text-slate-500 text-[10px] font-bold uppercase tracking-widest hover:text-slate-300"
+            >
+              {t('switch_to_signin')}
+            </button>
+          </form>
         </div>
       </div>
     );
@@ -576,14 +291,19 @@ const PartnerForm: React.FC<PartnerFormProps> = ({ lang, onCancel, onSuccess, cu
         <div className="relative z-10 max-w-xl mx-auto space-y-12">
           <div className="space-y-4 text-center">
             <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter leading-none">
-              Partner Sign In
+              {t('partner_signin_title')}
             </h2>
+            <p className="text-amber-500/80 font-bold text-sm uppercase tracking-[0.2em] leading-relaxed">
+              {t('partner_signin_desc')}
+            </p>
           </div>
+
           {errorMsg && (
-            <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl text-rose-500 text-xs font-bold text-center">
+            <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl text-rose-500 text-xs font-bold text-center animate-shake">
               {errorMsg}
             </div>
           )}
+
           <form onSubmit={handleSignIn} className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Email</label>
@@ -593,30 +313,32 @@ const PartnerForm: React.FC<PartnerFormProps> = ({ lang, onCancel, onSuccess, cu
                 className="w-full p-4 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
               />
             </div>
+
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-4">Password</label>
               <input 
                 type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="********"
                 className="w-full p-4 bg-slate-950 border border-slate-800 rounded-2xl text-white focus:border-amber-500/50 outline-none transition-all text-sm font-medium"
               />
             </div>
+
             <button 
               type="submit" 
               disabled={isSubmitting}
               className="w-full py-8 bg-amber-500 text-slate-950 font-black uppercase tracking-[0.4em] text-sm rounded-[3rem] shadow-2xl shadow-amber-500/30 active:scale-[0.97] transition-all disabled:opacity-50 relative overflow-hidden group mt-6"
             >
               <div className="relative z-10">
-                {isSubmitting ? <i className="fa-solid fa-circle-notch animate-spin"></i> : "Enter Portal"}
+                {isSubmitting ? <i className="fa-solid fa-circle-notch animate-spin"></i> : t('signin_btn')}
               </div>
               <div className="absolute top-0 -left-full w-2/3 h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[35deg] group-hover:animate-[shine_2s_infinite]"></div>
             </button>
             <button 
               type="button"
-              onClick={() => setStep('INTRO')}
+              onClick={() => setStep('APPLY')}
               className="w-full text-center text-slate-500 text-[10px] font-bold uppercase tracking-widest hover:text-slate-300"
             >
-              Back to Intro
+              {t('switch_to_apply')}
             </button>
           </form>
         </div>
@@ -632,34 +354,39 @@ const PartnerForm: React.FC<PartnerFormProps> = ({ lang, onCancel, onSuccess, cu
              <i className="fa-solid fa-crown text-white text-6xl"></i>
            </div>
         </div>
+        
         <div className="space-y-6">
            <h2 className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-none">
              Partner Portal
            </h2>
            <p className="text-amber-500 font-black text-sm md:text-xl uppercase tracking-[0.4em]">
-             Onboarding & Mastery
+             Authorized Pro Membership
            </p>
         </div>
+
         <div className="bg-slate-950/40 border border-slate-800 rounded-[3.5rem] p-12 text-left space-y-10 backdrop-blur-3xl shadow-inner">
-           <BenefitRow icon="fa-wand-magic-sparkles" text="Gemini-3-Pro Technical Insights" color="text-amber-500" />
-           <BenefitRow icon="fa-chart-line" text="Market Pulse & Part Strategy" color="text-blue-500" />
-           <BenefitRow icon="fa-comments-dollar" text="Verified WhatsApp Lead Stream" color="text-emerald-500" />
+           <BenefitRow icon="fa-wand-magic-sparkles" text="Gemini-3-Pro Engineering Chat" color="text-amber-500" />
+           <BenefitRow icon="fa-chart-line" text="Local Market Trends & Parts Advice" color="text-blue-500" />
+           <BenefitRow icon="fa-comments-dollar" text="Unlimited Direct WhatsApp Leads" color="text-emerald-500" />
         </div>
+
         <div className="flex flex-col gap-5 pt-8">
           <button 
-            onClick={() => setStep('STEP_IDENTITY')}
+            onClick={() => setStep('APPLY')}
             className="w-full py-9 bg-amber-500 text-slate-950 rounded-[3rem] flex items-center justify-center gap-6 shadow-[0_25px_70px_rgba(245,158,11,0.4)] transition-all active:scale-[0.97] group relative overflow-hidden"
           >
             <i className="fa-solid fa-file-signature text-3xl group-hover:rotate-12 transition-transform"></i>
-            <span className="text-xl font-black uppercase tracking-[0.2em]">Begin Onboarding</span>
+            <span className="text-xl font-black uppercase tracking-[0.2em]">Start Application</span>
             <div className="absolute top-0 -left-full w-2/3 h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[35deg] group-hover:animate-[shine_1.5s_infinite]"></div>
           </button>
+
           <button 
             onClick={() => setStep('SIGNIN')}
             className="w-full py-5 bg-slate-950 border border-slate-800 text-slate-400 font-black uppercase tracking-widest text-[11px] rounded-2xl hover:text-white transition-all active:scale-95"
           >
-            Enter Existing Node
+            {t('partner_signin_title')}
           </button>
+          
           <button 
             onClick={onCancel}
             className="w-full py-3 text-slate-600 font-black uppercase tracking-widest text-[11px] hover:text-slate-400 transition-all"
@@ -668,6 +395,16 @@ const PartnerForm: React.FC<PartnerFormProps> = ({ lang, onCancel, onSuccess, cu
           </button>
         </div>
       </div>
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+        .animate-shake {
+          animation: shake 0.4s ease-in-out;
+        }
+      `}</style>
     </div>
   );
 };

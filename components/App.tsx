@@ -147,12 +147,7 @@ const App: React.FC = () => {
       <main className="flex-grow flex flex-col items-center py-6 px-6 relative z-10">
         <div className="w-full max-w-4xl mx-auto text-center">
           {appState === AppState.PARTNER_SIGNUP ? (
-            <PartnerForm 
-              lang={lang} 
-              onCancel={handleReset} 
-              onSuccess={handlePartnerSignupSuccess} 
-              currentRole={role}
-            />
+            <PartnerForm lang={lang} onCancel={handleReset} onSuccess={handlePartnerSignupSuccess} />
           ) : (appState === AppState.IDLE || appState === AppState.DIAGNOSING) ? (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
               

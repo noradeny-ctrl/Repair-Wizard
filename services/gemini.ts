@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { WizardResult, Message, Language, WizardIntent, GroundingSource } from "../types";
 
@@ -157,59 +156,23 @@ export async function chatRepair(history: Message[], newMessage: string, context
   return { text: result.text || "...", sources };
 }
 
-export interface BusinessInsights {
-  trends: string[];
-  parts: string[];
-  repairs: string[];
-}
-
-export async function getBusinessInsights(city: string, lang: Language): Promise<BusinessInsights> {
+export async function getBusinessInsights(city: string, lang: Language): Promise<string> {
   const model = "gemini-3-pro-preview";
-  
-  const langNames = {
-    [Language.EN]: "English",
-    [Language.AR]: "Arabic",
-    [Language.KU_BADINI]: "Kurdish Badini (Bahdini)"
-  };
-
-  const prompt = `Provide professional business intelligence for a technical repair shop located in ${city}.
-  Include:
-  1. 3 highly specific local market trends (e.g., seasonal tech failures).
-  2. 3 essential recommended parts to stock based on local demand.
-  3. 3 most common repair types currently seen in this specific region.
-  
-  Target Language: ${langNames[lang]}. Ensure all content is in this language.`;
+  const prompt = `Provide 3 highly specific technical market trends and stocking advice for a professional repair shop located in ${city}. 
+  Focus on current seasonal trends (e.g., if it's hot, mention A/C failures). Mention specific common failures (like BMW ECU issues or Samsung screen shortages).
+  Target Language: ${lang}. Output format: A list of 3 concise bullet points.`;
 
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
     config: {
-      systemInstruction: "You are a business intelligence expert for technical repair facilities. Return response as JSON only.",
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          trends: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 market trends" },
-          parts: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 recommended parts" },
-          repairs: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 common repairs" }
-        },
-        required: ["trends", "parts", "repairs"]
-      },
+      systemInstruction: "You are a business intelligence expert for technical repair shops. Be concise, expert, and hyper-local.",
       tools: [{ googleSearch: {} }],
       temperature: 0.3
     }
   });
 
-  const text = response.text || "{}";
-  try {
-    return JSON.parse(text) as BusinessInsights;
-  } catch (e) {
-    return {
-      trends: ["Data stream disrupted."],
-      parts: ["Sync failure."],
-      repairs: ["Retry connection."]
-    };
-  }
+  return response.text || "Data stream unavailable.";
 }
 
 export async function validateObject(imageData: string): Promise<{ valid: boolean; message: string }> {

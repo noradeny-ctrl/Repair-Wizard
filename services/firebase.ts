@@ -12,9 +12,9 @@ const firebaseConfig = {
   measurementId: "G-0SFG0PWV6D"
 };
 
-// Singleton initialization pattern to prevent multiple app instances and registration errors
+// Singleton initialization pattern to prevent "already exists" and "not registered" errors.
+// By using exactly the same versions and bundling flags in the importmap, getAuth(app) will work correctly.
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize and export services with the shared app instance
 export const auth = getAuth(app);
 export const db = getFirestore(app);

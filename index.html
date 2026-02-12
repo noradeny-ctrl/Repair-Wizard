@@ -1,4 +1,32 @@
 <!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Repair Wizard | Partner Access</title>
+    
+    <script type="importmap">
+{
+  "imports": {
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js",
+    "firebase/analytics": "https://www.gstatic.com/firebasejs/10.13.1/firebase-analytics.js",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
+    "firebase/": "https://esm.sh/firebase@^12.9.0/"
+  }
+}
+</script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
@@ -12,7 +40,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://esm.sh">
     
-    <title>Repair Wizard | Partner Onboarding</title>
+    <title>Repair Wizard | Magic Lens</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -39,9 +67,55 @@
             overflow-x: hidden;
         }
 
+        /* --- LEGIBILITY REFACTOR FOR RTL --- */
         [dir="rtl"], .font-ku {
             font-family: 'Noto Sans Arabic', -apple-system, sans-serif !important;
             letter-spacing: 0 !important;
+            word-spacing: normal !important;
+        }
+
+        [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4, [dir="rtl"] h5, [dir="rtl"] h6,
+        .font-ku h1, .font-ku h2, .font-ku h3, .font-ku h4, .font-ku h5, .font-ku h6 {
+            line-height: 1.6 !important;
+            font-weight: 700 !important;
+        }
+
+        [dir="rtl"] p, [dir="rtl"] span, [dir="rtl"] li, [dir="rtl"] div, [dir="rtl"] button, [dir="rtl"] textarea, [dir="rtl"] input,
+        .font-ku p, .font-ku span, .font-ku li, .font-ku div, .font-ku button, .font-ku textarea, .font-ku input {
+            line-height: 1.8 !important;
+            font-weight: 400 !important;
+            letter-spacing: 0 !important;
+        }
+
+        [dir="rtl"] .font-bold, [dir="rtl"] .font-black, [dir="rtl"] .font-extrabold,
+        .font-ku .font-bold, .font-ku .font-black, .font-ku .font-extrabold {
+            font-weight: 600 !important;
+        }
+        
+        [dir="rtl"] * {
+            letter-spacing: 0 !important;
+        }
+
+        input, textarea, [contenteditable="true"] {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        .overflow-y-auto {
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+        }
+
+        .wizard-gradient {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        }
+
+        @keyframes nebula-float {
+            0% { transform: scale(1) translate(0, 0); opacity: 0.3; }
+            50% { transform: scale(1.1) translate(-2%, 2%); opacity: 0.4; }
+            100% { transform: scale(1) translate(0, 0); opacity: 0.3; }
         }
 
         .nebula {
@@ -56,11 +130,7 @@
             z-index: -1;
             animation: nebula-float 15s ease-in-out infinite;
             pointer-events: none;
-        }
-
-        @keyframes nebula-float {
-            0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.3; }
-            50% { transform: scale(1.1) translate(-2%, 2%); opacity: 0.4; }
+            will-change: transform, opacity;
         }
 
         .stars {
@@ -75,10 +145,59 @@
             pointer-events: none;
         }
 
+        .ios-transition {
+            transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            will-change: transform, opacity;
+        }
+
+        button:active {
+            transform: scale(0.96);
+            opacity: 0.8;
+            transition: transform 0.1s ease-out;
+        }
+
+        @keyframes scan-laser {
+            0% { transform: translateY(-100%); opacity: 0; }
+            50% { opacity: 0.6; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+
+        .magic-scan-line {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--wizard-cyan);
+            box-shadow: 0 0 15px var(--wizard-cyan);
+            z-index: 250;
+            animation: scan-laser 3s linear infinite;
+            pointer-events: none;
+        }
+
         .pt-safe { padding-top: env(safe-area-inset-top); }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
         
         ::-webkit-scrollbar { width: 0px; }
+        
+        .spell-loader {
+            width: 60px;
+            height: 60px;
+            position: relative;
+        }
+        .spell-loader div {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px solid transparent;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spell-spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes spell-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
     
     <script type="importmap">
@@ -89,9 +208,10 @@
     "react-dom/": "https://esm.sh/react-dom@19.0.0/",
     "react/": "https://esm.sh/react@19.0.0/",
     "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
-    "firebase/app": "https://esm.sh/firebase@11.2.0/app",
-    "firebase/auth": "https://esm.sh/firebase@11.2.0/auth",
-    "firebase/firestore": "https://esm.sh/firebase@11.2.0/firestore",
+    "firebase/app": "https://esm.sh/firebase@10.13.1/app",
+    "firebase/auth": "https://esm.sh/firebase@10.13.1/auth?bundle",
+    "firebase/firestore": "https://esm.sh/firebase@10.13.1/firestore?bundle",
+    "@/": "./",
     "firebase/": "https://esm.sh/firebase@^12.9.0/"
   }
 }
@@ -102,5 +222,73 @@
     <div class="stars"></div>
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
+
+    <!-- Inline script for partner logic - unified with the main importmap -->
+    <script type="module">
+      import { initializeApp, getApps, getApp } from "firebase/app";
+      import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
+      import { getFirestore, doc, setDoc, serverTimestamp } from "firebase/firestore";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyBwT4WTmRLfLKiiO7dnIF7Nfii4niVP_HM",
+        authDomain: "repair-wizard-65e13.firebaseapp.com",
+        projectId: "repair-wizard-65e13",
+        storageBucket: "repair-wizard-65e13.firebasestorage.app",
+        messagingSenderId: "158752709879",
+        appId: "1:158752709879:web:30f3aaa95b3a120d1187f2",
+        measurementId: "G-0SFG0PWV6D"
+      };
+
+      // Unify app initialization to share registry
+      const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+      const auth = getAuth(app);       
+      const db = getFirestore(app);    
+
+      console.log("Repair Wizard Internal Auth Bridge Initialized");
+
+      window.submitApplication = async function(event) {
+          event.preventDefault(); 
+          
+          const email = document.getElementById('partner-email').value;
+          const password = document.getElementById('partner-pass').value;
+          const shopName = document.getElementById('shop-name').value;
+          const location = document.getElementById('shop-location').value;
+          const phone = document.getElementById('shop-phone').value;
+          const statusMsg = document.getElementById('status-message');
+
+          if(password.length < 6) {
+              alert("Password must be at least 6 characters.");
+              return;
+          }
+
+          statusMsg.innerText = "Creating Account...";
+          statusMsg.style.color = "orange";
+
+          try {
+              const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+              const user = userCredential.user;
+
+              await sendEmailVerification(user);
+
+              await setDoc(doc(db, "partners", user.uid), {
+                  shopName: shopName,
+                  email: email,
+                  location: location,
+                  phone: phone,
+                  status: "pending", 
+                  appliedAt: serverTimestamp()
+              });
+
+              document.getElementById('application-form').style.display = 'none';
+              document.getElementById('pending-screen').style.display = 'block';
+              console.log("Success! Account created.");
+
+          } catch (error) {
+              console.error("Signup Error:", error);
+              statusMsg.style.color = "red";
+              statusMsg.innerText = "Error: " + error.message;
+          }
+      }
+    </script>
 </body>
 </html>
