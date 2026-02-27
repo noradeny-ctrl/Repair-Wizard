@@ -1,16 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import DiagnosisForm from './components/DiagnosisForm';
-import WizardDisplay from './components/WizardDisplay';
-import ChatWidget from './components/ChatWidget';
-import LanguageSelector from './components/LanguageSelector';
-import PartnerForm from './components/PartnerForm';
+import Header from './Header';
+import DiagnosisForm from './DiagnosisForm';
+import WizardDisplay from './WizardDisplay';
+import ChatWidget from './ChatWidget';
+import LanguageSelector from './LanguageSelector';
+import PartnerForm from './PartnerForm';
 import PartnerAnalytics from './PartnerAnalytics';
-import Logo from './components/Logo';
-import { invokeWizard } from './services/gemini';
-import { useTranslation } from './services/i18n';
-import { AppState, WizardResult, Language, WizardIntent, UserRole } from './types';
+import Logo from './Logo';
+import { invokeWizard } from '../services/gemini';
+import { useTranslation } from '../services/i18n';
+import { AppState, WizardResult, Language, WizardIntent, UserRole } from '../types';
 
 const App: React.FC = () => {
   const [isBooting, setIsBooting] = useState(true);

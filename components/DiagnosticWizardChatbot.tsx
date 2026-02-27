@@ -94,7 +94,8 @@ async function searchShopsBySpecialty(specialtyTokens: string[]): Promise<Shop[]
       location: data.location || { city: 'Unknown', neighborhood: 'Unknown' },
       isVerified: Boolean(data.isVerified),
       rating: Number(data.rating || 0),
-      reviews: data.reviews || []
+      reviews: data.reviews || [],
+      subscriptionStatus: data.subscriptionStatus || 'active'
     };
   });
 }
