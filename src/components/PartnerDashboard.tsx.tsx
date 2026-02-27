@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { auth } from "../services/firebase";
+import { auth } from "../../services/firebase";
 
 export default function PartnerDashboard() {
   const [clientMode, setClientMode] = useState(false); // Toggle to hide wholesale prices
