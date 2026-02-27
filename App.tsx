@@ -6,6 +6,7 @@ import WizardDisplay from './components/WizardDisplay';
 import LanguageSelector from './components/LanguageSelector';
 import PartnerForm from './components/PartnerForm';
 import Logo from './components/Logo';
+import DiagnosticWizardChatbot from './components/DiagnosticWizardChatbot';
 import { invokeWizard } from './services/gemini';
 import { useTranslation } from './services/i18n';
 // Added UserRole to imports
@@ -165,6 +166,7 @@ const App: React.FC = () => {
               
               <div className="max-w-2xl mx-auto w-full space-y-8">
                 <DiagnosisForm key={formKey} onDiagnose={handleConsultation} loading={appState === AppState.DIAGNOSING} lang={lang} />
+                <DiagnosticWizardChatbot />
               </div>
             </div>
           ) : appState === AppState.RESULT && result ? (
